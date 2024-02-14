@@ -45,35 +45,54 @@ carrier_dummy = carrier_dummy[[col for col in carrier_dummy.columns if col in TK
 # market_dummy = pd.get_dummies(df.loc[:, "market"]) the data gets too large
 ###############################################################################################
 # Baseline
-X = df[["RoundTrip", "OnLine_new", "MktDistance", "Year"]]
+df['Constant'] = 1
+X = df[["Constant", "RoundTrip", "OnLine_new", "MktDistance", "Year"]]
 X = pd.concat([X, carrier_dummy], axis=1)
 y = df["AveFare"]
+
 mod = sm.OLS(y, X).fit()
 print(mod.summary())
 
 # regression OLS with ((X'*X)\X')*Y to solve memory issue
 # beta_r = np.linalg.inv(X.transpose().dot(X)).dot(X.transpose()).dot(y)
 # Add B6AA dummy
-X = df[["RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA"]]
+X = df[["Constant", "RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA"]]
 X = pd.concat([X, carrier_dummy], axis=1)
+y = df["AveFare"]
+
 mod2 = sm.OLS(y, X).fit()
 print(mod2.summary())
 
 # Regression with market fixed effects is in the python file "TopMarket Analysis"
 # Add NEA_market dummy
-X = df[["RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA"]]
+X = df[["Constant", "RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA", "NEA_market"]]
 X = pd.concat([X, carrier_dummy], axis=1)
-mod3 = sm.OLS(y, df[["RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA", "NEA_market"]]).fit()
+y = df["AveFare"]
+
+mod3 = sm.OLS(y, X).fit()
 print(mod3.summary())
 
 # add the interactive term --> Diff-In-Diff Regression
 # NEA market_codeshared will the vairable of interest
-X = df[["RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA", "NEA_market", "NEA_market_codeshared"]]
+X = df[["Constant", "RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA", "NEA_market", "NEA_market_codeshared"]]
 X = pd.concat([X, carrier_dummy], axis=1)
+y = df["AveFare"]
+
 mod4 = sm.OLS(y, X).fit()
 print(mod4.summary())
 
-
-res = summary_col([mod, mod2, mod3,mod4], regressor_order=mod.params.index.tolist())
+res = summary_col([mod, mod2, mod3, mod4], regressor_order=mod.params.index.tolist())
 res.tables[0].to_csv("output2.csv")
-print(mod.summary())
+
+################################################################################################
+# Cluster Robust
+
+################################################################################################
+# Check log(fare)
+
+X = df[["Constant", "RoundTrip", "OnLine_new", "MktDistance", "Year", "B6AA", "NEA_market", "NEA_market_codeshared"]]
+X = pd.concat([X, carrier_dummy], axis=1)
+y = np.log(df["AveFare"])
+
+mod5 = sm.OLS(y, X).fit()
+print(mod5.summary())
