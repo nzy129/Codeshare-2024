@@ -6,6 +6,6 @@ Work in Progress.
 
 
 ## NEA and Non-NEA Markets
-<img src="https://github.com/nzy129/Codeshare-2024/blob/main/Ave_Price_Quantity.png" alt="Image" width="80%">
+<img src="https://github.com/nzy129/Codeshare-2024/blob/main/Price Trend.png" alt="Image" width="80%">
 
 
