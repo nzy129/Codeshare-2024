@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-# this file clearn the data
+# this file clean the data
 
 def clean_data(y:int, q:int):
     import pandas as pd
