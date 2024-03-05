@@ -20,8 +20,8 @@ df['NEA_market'] = df['NEA_market'].astype(int)
 df['NEA_market_codeshared'] = 1 * (df.groupby(["market", "Year", "Quarter"])['B6AA'].transform('sum') > 0)
 
 # Summary Statistics
-output = df.describe()
-output.to_csv('output.csv')
+# output = df.describe()
+# output.to_csv('output.csv')
 ##########
 df["Weighted_Price"] = df["AveFare"] * df["Passengers"]
 grouped_df = df.groupby(['Year', 'Quarter']).agg({"Weighted_Price": "sum", "Passengers": "sum"}).reset_index()
@@ -34,7 +34,7 @@ grouped_df['Weighted_Avg_Price'] = grouped_df['Weighted_Price'] / grouped_df['Pa
 # Prepare the data for regression
 # delete the markets with less than 100 passengers recorded.
 df['total_quantity'] = df.groupby(["market", "Year", "Quarter"])['Passengers'].transform('sum')
-df = df[df['total_quantity'] >= 100]
+# df = df[df['total_quantity'] >= 100]
 # 11609866 --> 6839666
 
 market_counts = df.groupby(['market', 'Year', 'Quarter']).size().reset_index(name='count')
@@ -44,6 +44,31 @@ print(market_counts.describe())
 df["TicketCarrier"] = df.loc[:, "TkCarrierGroup"].apply(lambda x: list(set(x.split(":"))))
 df["TicketCarrier"] = df["TicketCarrier"].apply(lambda x: ':'.join(x))
 
+df["Nonstop"] = 1 * (df["AirportGroup"].apply(lambda x: len(x.split(":"))) == 2)
+
+df["OpCarrier"] = df.loc[:, "OpCarrierGroup"].apply(lambda x: list(set(x.split(":"))))
+df["OpCarrier"] = df["OpCarrier"].apply(lambda x: ':'.join(x))
+
+# create variable Traditional codeshare where there are two operating carriers involved and only one ticketing carrier
+df["T_Codeshare"] = 1 * (df["OpCarrier"].apply(lambda x: len(x.split(":"))) == 2) * (
+        df["TicketCarrier"].apply(lambda x: len(x.split(":"))) == 1)
+# create variable Virtual codeshare where there are two operating carriers involved and only one ticketing carrier and
+# operating carrier is different from the ticketing carrier
+df["V_Codeshare"] = (1 * (df["OpCarrier"].apply(lambda x: len(x.split(":"))) == 1) *
+                     (df["TicketCarrier"].apply(lambda x: len(x.split(":"))) == 1) *
+                     (df["OpCarrier"] != df["TicketCarrier"]))
+
+df["T_Codeshare"].sum() + df["V_Codeshare"].sum() + df["Interline"].sum() + df["OnLine_new"].sum()
+
+# test = df[(df["T_Codeshare"] == 0) & (df["V_Codeshare"] == 0) & (df["Interline"] == 0) & (df["OnLine_new"] == 0)]
+# test2 = df[df["T_Codeshare"] == 1]
+# df.to_csv('cleaned_2019_2023_stata_35.csv')
+
+###########################################################################3
+
+output = df.describe()
+output.to_csv('descriptive.csv')
+########################################################################################################################
 # Check the frequency of the ticketing Carrier
 TkGroup_counts = df.groupby(['TicketCarrier'])['Passengers'].sum().reset_index(name='count').sort_values(by='count',
                                                                                                          ascending=False)
@@ -123,4 +148,16 @@ mod5_r = mod5.get_robustcov_results(cov_type="cluster", groups=df["gpID"])
 res = summary_col([mod_r, mod2_r, mod3_r, mod4_r, mod5_r], regressor_order=mod.params.index.tolist())
 res.tables[0].to_csv("output2152024_2.csv")
 
-df.market.unique().size
+print(df.market.unique().size)
+# my own exploration
+
+X = df[["Constant", "RoundTrip", "Interline", "OnLine_new", "MktDistance", "B6AA", "NEA_market",
+        "NEA_market_codeshared"]]
+temp = pd.DataFrame(df.loc[:, "MktDistance"] ** 2, columns=["MktDistance2"])
+
+X = pd.concat([X, carrier_dummy, Year_dummy, Quarter_dummy, temp], axis=1)
+y = np.log(df["AveFare"])
+
+mod6 = sm.OLS(y, X).fit()
+mod6_r = mod6.get_robustcov_results(cov_type="cluster", groups=df["gpID"])
+print(mod6_r.summary())
