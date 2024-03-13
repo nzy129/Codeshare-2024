@@ -1,15 +1,11 @@
-import urllib.request
-import numpy as np
-import matplotlib.pyplot as plt
-
-
 # this file clearn the data
 # y =2019
 # q=1
 def clean_data(y: int, q: int):
     import pandas as pd
+    import time
     import zipfile
-
+    import numpy as np
     # with zipfile.ZipFile("Data/Coupon_{}_{}.zip".format(y, q)) as z:
     #    df_coupon = pd.read_csv(z.open('Origin_and_Destination_Survey_DB1BCoupon_{}_{}.csv'.format(2019, 1)), header=0)
     #    df_coupon = df_coupon[
@@ -26,7 +22,7 @@ def clean_data(y: int, q: int):
         df_market = df_market[["ItinID", "MktID", "MktCoupons", "Year", "Quarter", "Origin", "Dest", "AirportGroup",
                                "TkCarrierGroup", "OpCarrierGroup", "Passengers", "MktFare", "MktDistance",
                                "NonStopMiles"]]
-        df_market = df_market.rename({"Origin": 'Origin_m', "Dest": "Dest_m"}, axis=1)
+        df_market = df_market.rename(columns={"Origin": 'Origin_m', "Dest": "Dest_m"})
     # del df
     # df = df[df.Coupons <= 4]
 
@@ -66,6 +62,10 @@ def clean_data(y: int, q: int):
         return 1 if len(set(value.split(":"))) == 1 else 0
 
     df_test_new = df_test.copy()  # to get rid of warning
+    # Create Ticket Carrier Dummies by extracting the unique carrier e.g. AA:AA --> AA,  AA:AS --> AA:AS
+    df_test_new["TicketCarrier"] = df_test_new.loc[:, "TkCarrierGroup"].apply(lambda x: list(set(x.split(":"))))
+    df_test_new["TicketCarrier"] = df_test_new["TicketCarrier"].apply(lambda x: ':'.join(x))
+
     df_test_new["Nonstop"] = 1 * (df_test_new["AirportGroup"].apply(lambda x: len(x.split(":"))) == 2)
 
     # find the codeshare products between JetBlue and AA
@@ -73,17 +73,18 @@ def clean_data(y: int, q: int):
                                                                                         "OpCarrierGroup"].str.contains(
         "AA")
     # the city pair where they do codeshare
-    df_test_new['NEA_market'] = 1 * (df_test_new.groupby("market")['B6AA'].transform('sum') > 0)
-    df_test_new['NEA_market'] = df_test_new['NEA_market'].astype(int)
+    #df_test_new['NEA_market'] = 1 * (df_test_new.groupby("market")['B6AA'].transform('sum') > 0)
+    #df_test_new['NEA_market'] = df_test_new['NEA_market'].astype(int)
     df_test_new['NEA_market_codeshared'] = 1 * (
-                df_test_new.groupby(["market", "Year", "Quarter"])['B6AA'].transform('sum') > 0)
+            df_test_new.groupby(["market", "Year", "Quarter"])['B6AA'].transform('sum') > 0)
 
     df_test_new.loc[:, "OnLine_new"] = df_test_new.loc[:, "OpCarrierGroup"].apply(check_unique_op)
 
-    df_test_new = df_test_new[(df_test_new.ItinFare < 2500) & (df_test.ItinFare >= 20)]
-
+    df_test_new = df_test_new[(df_test_new.MktFare < 2500) & (df_test_new.MktFare > 25)]
+    #len(df_test_new[(df_test_new.ItinFare < 2500) & (df_test.ItinFare >= 20)])
+    #len(df_test_new[(df_test_new.MktFare < 2500) & (df_test_new.MktFare > 25)])
     # df_test.drop(["OnLine","MktCoupons","Coupons"], axis=1, inplace=True)
-
+    t = time.time()
     output = df_test_new.groupby(
         by=["market", "TkCarrierGroup", "OpCarrierGroup", "AirportGroup", "RoundTrip", "OnLine_new",
             "MktDistance", "NonStopMiles", "MktCoupons", "Coupons", "Year", "Quarter"],
@@ -93,7 +94,8 @@ def clean_data(y: int, q: int):
 
     output['total_quantity'] = output.groupby("market")['Passengers'].transform('sum')
     cleaned_data = output[output['total_quantity'] >= 1]  # change it to 100 to delete low demand market
-
+    elapsed = time.time() - t
+    print(elapsed)
     # around 0.76% of the passengers contains  --
 
     # print(len(cleaned_data.market.unique())) # 10710 markets
@@ -106,21 +108,13 @@ def clean_data(y: int, q: int):
     # plt.xlabel('Total Quantity')
     # plt.ylabel('Frequency')
     # plt.show()
-
-    def q1(x, weights):
+    # price dispersion 1% 10% 25% 50% 75% 90% 99%, an observation is airline i route j year-quarter t direct/coneceting k
+    def quantile_p(x, weights, perc):
         sorted_indices = np.argsort(x)
         sorted_weights = weights.iloc[sorted_indices]
         sorted_values = x.iloc[sorted_indices]
         cumulative_weights = np.cumsum(sorted_weights)
-        percentile = np.searchsorted(cumulative_weights, 0.1 * cumulative_weights.iloc[-1])
-        return sorted_values.iloc[percentile]
-
-    def q9(x, weights):
-        sorted_indices = np.argsort(x)
-        sorted_weights = weights.iloc[sorted_indices]
-        sorted_values = x.iloc[sorted_indices]
-        cumulative_weights = np.cumsum(sorted_weights)
-        percentile = np.searchsorted(cumulative_weights, 0.9 * cumulative_weights.iloc[-1])
+        percentile = np.searchsorted(cumulative_weights, perc * cumulative_weights.iloc[-1])
         return sorted_values.iloc[percentile]
 
     def variance_weighted(x, weights):
@@ -132,20 +126,77 @@ def clean_data(y: int, q: int):
         weighted_mean = np.average(x, weights=weights)
         return weighted_mean
 
-    f = {'MktFare': [
+
+    f2 = {'MktFare': [
         ('mmktfare', lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])),
         ('vmktfare', lambda x: variance_weighted(x, df_test_new.loc[x.index, 'Passengers'])),
-        ('q1fare', lambda x: q1(x, df_test_new.loc[x.index, 'Passengers'])),
-        ('q9fare', lambda x: q9(x, df_test_new.loc[x.index, 'Passengers']))],
+        ('q1fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.01)),
+        ('q05fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.05)),
+        ('q10fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.1)),
+        ('q15fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.15)),
+        ('q20fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.20)),
+        ('q25fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.25)),
+        ('q30fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.3)),
+        ('q35fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.35)),
+        ('q45fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.45)),
+        ('q50fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.5)),
+        ('q55fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.55)),
+        ('q60fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.6)),
+        ('q65fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.65)),
+        ('q70fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.7)),
+        ('q75fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.75)),
+        ('q80fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.8)),
+        ('q85fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.85)),
+        ('q90fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.9)),
+        ('q99fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.99))],
         'RoundTrip': [lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])],
         'MktDistance': [lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])],
         'Nonstop': [lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])],
         'Passengers': [lambda x: sum(x)]
     }
+    # marekt level
+    #
+    output2 = pd.DataFrame()
+    # output2 = df_test_new.groupby(
+    #    by=["market", "NonStopMiles", "Year", "Quarter", "NEA_market_codeshared"],
+    #    level=None).agg(f2).reset_index()
 
-    output2 = df_test_new.groupby(
-        by=["market", "NonStopMiles", "Year", "Quarter", "NEA_market", "NEA_market_codeshared"],
-        level=None).agg(f).reset_index()
+    # output2['total_quantity'] = output2.groupby("market")['Passengers'].transform('sum')
+    f3 = {'MktFare': [
+        ('mmktfare', lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])),
+        ('vmktfare', lambda x: variance_weighted(x, df_test_new.loc[x.index, 'Passengers'])),
+        ('q1fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.01)),
+        ('q05fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.05)),
+        ('q10fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.1)),
+        ('q15fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.15)),
+        ('q20fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.20)),
+        ('q25fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.25)),
+        ('q30fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.3)),
+        ('q35fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.35)),
+        ('q45fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.45)),
+        ('q50fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.5)),
+        ('q55fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.55)),
+        ('q60fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.6)),
+        ('q65fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.65)),
+        ('q70fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.7)),
+        ('q75fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.75)),
+        ('q80fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.8)),
+        ('q85fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.85)),
+        ('q90fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.9)),
+        ('q99fare', lambda x: quantile_p(x, df_test_new.loc[x.index, 'Passengers'], 0.99))],
+        'MktDistance': [lambda x: average_weighted(x, df_test_new.loc[x.index, 'Passengers'])],
+        'Passengers': [lambda x: sum(x)]
+    }
+    # route-airline level
+    t = time.time()
+    output3 = df_test_new.groupby(
+        by=["market", "TicketCarrier", "RoundTrip", "OnLine_new",
+            "NonStopMiles", "MktCoupons", "Coupons", "Year", "Quarter",  "NEA_market_codeshared"],
+        level=None).agg(f3).reset_index()
+    elapsed = time.time() - t
+    print(elapsed)
 
-    output2['total_quantity'] = output2.groupby("market")['Passengers'].transform('sum')
-    return cleaned_data, output2
+
+    return cleaned_data, output2, output3
+
+
