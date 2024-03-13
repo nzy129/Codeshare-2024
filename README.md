@@ -15,4 +15,4 @@ JetBlue and American have strong market presence at Boston BOS and New York JFK 
 
 
 ## The Effect of NEA on Price Dispersion
-<img src="https://github.com/nzy129/Codeshare-2024/tree/main/Stata/The Effect of NEA on Percentiles of Fare Distribution.png" alt="Image" width="80%">
+<img src="https://github.com/nzy129/Codeshare-2024/blob/main/Stata/The%20Effect%20of%20NEA%20on%20Percentiles%20of%20Fare%20Distribution.png?raw=true" alt="Image" width="80%">
