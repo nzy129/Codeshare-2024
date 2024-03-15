@@ -239,7 +239,7 @@ graphregion(color(white)) plotregion(color(white))
 
 coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
  q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
- keep(nea_market_codeshared_b6) vertical bycoefs ytitle("Impact of NEA Codeshare on AA Airfare Dispersion") ///
+ keep(nea_market_codeshared_b6) vertical bycoefs ytitle("Impact of NEA Codeshare on B6 Airfare Dispersion") ///
 xtitle("Selected Percentiles") ///
 recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
 graphregion(color(white)) plotregion(color(white))
