@@ -1,6 +1,9 @@
-/// Codeshare Alliance between JetBlue and American Airlines
+/*
+ Codeshare Alliance between JetBlue and American Airlines written by Zheyu Ni 
+at The Ohio State University, 3/20/2024
+This file estimates the impact of NEA on price dispersion.
+*/
 /// import the data 
-
 clear all
 import delimited "E:\Research\Codeshare JetBlue AA\pythonProject3\cleaned_2019_2023_stata_35.csv"
 
@@ -165,9 +168,9 @@ di "R-squared: " e(r2)
 di "N: " e(N)
 }
 
-
-/// delete samll markets 
-drop if total_quantity<2000
+********************************************************************************
+/// delete samll markets  
+*drop if total_quantity<2000
 
 egen newidd = group(market)
 sum newidd
@@ -187,41 +190,58 @@ est sto reg_market_fixed
 
 estout reg_market_fixed_ln reg_market_fixed using result222_marketfixed.xls, cells("b" se)  replace
 ********************************************************************************
-/////////////////////////////////////////////////////////////////////////
-/// delete covid period and small markets for regression
+/// delete covid period for regression
 drop if year==2020 |year ==2021 |(year==2022 & quarter ==1)
-drop if total_quantity <2000
 
-egen newidd = group(market)
-sum newidd
-  ///drop covid year only, there are 101322 markets. 
-  ///drop small than 2000, there are 1959 markets left
 
 reg avefare roundtrip nonstop incon t_codeshare v_codeshare interline online_new ///
-mktdistance100 mktdistance1002 1.b6aa_c#1.AA 1.b6aa_c#1.B6 ///
- WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
- nea_market nea_market_codeshared i.dt[aweight = passengers], cluster(market)
+mktdistance100 mktdistance1002 b6aa_c WN AA DL UA NK AS B6 F9 G4 HA SY ///
+XP MX MM nea_market nea_market_codeshared i.dt [aweight = passengers], cluster(market)
+
+est sto reg1_weight_noc
+
+reg avefare roundtrip nonstop incon t_codeshare v_codeshare interline online_new ///
+mktdistance100 mktdistance1002 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY ///
+XP MX MM nea_market nea_market_codeshared  i.dt[aweight = passengers], cluster(market)
 est sto reg2_weight_noc
 
 reg lnfare roundtrip nonstop incon t_codeshare v_codeshare interline online_new ///
-mktdistance100 mktdistance1002 1.b6aa_c#1.AA 1.b6aa_c#1.B6 ///
- WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
- nea_market nea_market_codeshared i.dt[aweight = passengers], cluster(market)
-est sto reg2_weight_noc_ln
+mktdistance100 mktdistance1002 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY ///
+XP MX MM nea_market nea_market_codeshared i.dt[aweight = passengers], cluster(market)
 
+est sto reg3_weight_noc
+
+
+/// check the whole markets price for AA and B6 products
 reg lnfare roundtrip nonstop incon t_codeshare v_codeshare interline online_new ///
-mktdistance100 mktdistance1002 1.b6aa_c#1.AA 1.b6aa_c#1.B6 ///
- WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
- nea_market nea_market_codeshared 1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6 ///
- i.dt[aweight = passengers], cluster(market)
-est sto reg3_weight_noc_ln
+mktdistance100 mktdistance1002 b6aa_c WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM nea_market nea_market_codeshared ///
+1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6 ///
+i.dt [aweight = passengers]
+est sto reg4_weight_noc
 
 
 
-estout reg2_weight_noc reg3_weight_noc_ln using result2222_noc.xls, cells("b" se)   replace
+estout reg1_weight_noc reg2_weight_noc reg3_weight_noc reg4_weight_noc using result222_excludecovid.xls, cells("b" se)  replace
+
+
+// check R_square and number of the observations
+foreach x  in "reg1_weight_noc"  "reg2_weight_noc" "reg3_weight_noc" "reg4_weight_noc"  {
+
+est restore `x'
+di "R-squared: " e(r2)
+di "N: " e(N)
+}
+
+
 ********************************************************************************
 /// market fixed effects | without covid
-  
+drop if total_quantity <2000
+egen newidd = group(market)
+sum newidd
+///drop covid year only, there are 101322 markets. 
+///drop small than 2000, there are 1959 markets left
+
+
 reg avefare roundtrip nonstop incon t_codeshare v_codeshare interline online_new ///
  1.b6aa#1.AA 1.b6aa#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
  nea_market_codeshared i.dt i.newidd [aweight = passengers], cluster(market)
@@ -237,11 +257,20 @@ est sto reg_market_fixed_nocovid_ln
 
 reg lnfare roundtrip nonstop incon t_codeshare v_codeshare interline online_new  ///
 1.b6aa#1.AA 1.b6aa#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
-nea_market_codeshared 1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6 i.dt i.newidd [aweight = passengers], cluster(market)
+nea_market_codeshared 1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6 ///
+i.dt i.newidd [aweight = passengers], cluster(market)
 
-est sto reg_market_fixed_nocovid_ln_b6aa
+est sto reg_mf_nocovid_ln_b6aa
 
 
-estout reg_market_fixed_nocovid_ln reg_market_fixed_nocovid using result222_marketfixed_nocovid.xls, cells("b" se)  replace
+estout reg_market_fixed_nocovid reg_market_fixed_nocovid_ln ///
+reg_mf_nocovid_ln_b6aa using result222_marketfixed_nocovid.xls, cells("b" se)  replace
+
+foreach x  in "reg_market_fixed_nocovid"  "reg_market_fixed_nocovid_ln" "reg_mf_nocovid_ln_b6aa" {
+
+est restore `x'
+di "R-squared: " e(r2)
+di "N: " e(N)
+}
 
 
