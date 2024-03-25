@@ -1,7 +1,7 @@
 /*
  Codeshare Alliance between JetBlue and American Airlines written by Zheyu Ni 
 at The Ohio State University, 3/20/2024
-This file estimates the impact of NEA on price dispersion.
+This file estimates the impact of NEA at the route level.
 */
 /// import the data 
 clear all
