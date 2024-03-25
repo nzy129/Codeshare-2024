@@ -132,18 +132,121 @@ foreach x in "WN" "AA" "DL" "UA" "NK" "AS" "B6" "F9" "G4" "HA" "SY" "XP" "MX" "M
 gen `x' = strpos(ticketcarrier, "`x'")>0
 }
 
+gen dt = yq(year, quarter)
+gen MktFare_sd=sqrt(MktFare_v)
+gen mktdistance100 = mktdistance/100
+gen mktdistance1002=mktdistance100^2
 /// delete covid period 
 drop if year==2020 |year ==2021 |(year==2022 & quarter ==1)
+
+********************************************************************************
+///////////////////////////////////////////////////////////////////////////////
+/// regression of market fare
+/// N = 5017166
+gen lnmktfare = ln(mktfare)
+
+reg mktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+est store reg_nocovid
+
+reg lnmktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+est store reg_nocovid_ln
+
+/// seperate b6 and aa
+gen nea_market_codeshared_b6 = nea_market_codeshared* B6
+gen nea_market_codeshared_aa = nea_market_codeshared* AA
+
+reg mktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared_b6 nea_market_codeshared_aa ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+
+est store reg_b6aa_nocovid
+
+reg lnmktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared_b6 nea_market_codeshared_aa ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+
+est store reg_b6aa_nocovid_ln
+
+/// delete samll markets 
+
+egen total_quantity = total( passengers), by(market year quarter)
+
+drop if total_quantity<2000
+/// N= 752010, may need robostness check here
+egen newidd = group(market) ///1957 markets left
+
+set matsize 2200
+
+
+reg lnmktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared i.dt i.newidd  WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+
+est sto reg_market_fixed_nocovid_ln
+
+reg lnmktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared_b6 nea_market_codeshared_aa ///
+nea_market_codeshared i.dt i.newidd  WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
+[aweight = passengers], cluster(market) 
+
+est sto reg_market_fixed_b6aa_ln
+
+
+estout reg_nocovid reg_nocovid_ln reg_b6aa_nocovid reg_b6aa_nocovid_ln  ///
+ reg_market_fixed_nocovid_ln reg_market_fixed_b6aa_ln using ///
+ result3152_marketfixed_nocovid.xls, cells("b" se)  replace
+ 
+ 
+est restore reg_nocovid
+ereturn list
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_b6aa_nocovid
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_b6aa_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_market_fixed_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_market_fixed_b6aa_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+********************************************************************************
+////////////////////////////////////////////////////////////////////////////////
+/// price dispersion
+
+clear all
+use "F:\Codeshare JetBlue AA\pythonProject3\Codeshare_stata_315.dta"
+
+foreach x in "WN" "AA" "DL" "UA" "NK" "AS" "B6" "F9" "G4" "HA" "SY" "XP" "MX" "MM" {
+gen `x' = strpos(ticketcarrier, "`x'")>0
+}
 
 gen dt = yq(year, quarter)
 gen MktFare_sd=sqrt(MktFare_v)
 gen mktdistance100 = mktdistance/100
 gen mktdistance1002=mktdistance100^2
-
-
+/// delete covid period 
+drop if year==2020 |year ==2021 |(year==2022 & quarter ==1)
 
 reg MktFare_sd roundtrip nonstop mktdistance100 mktdistance1002 ///
-nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
 est sto reg1_v
 
 gen lnq1= ln(q1)
@@ -167,26 +270,24 @@ gen lnq85= ln(q85)
 gen lnq90= ln(q90)
 gen lnq99= ln(q99)
 
-gen lnmktfare = ln(mktfare)
-
-gen nea_market_codeshared_b6 = nea_market_codeshared* B6
-gen nea_market_codeshared_aa = nea_market_codeshared* AA
-/// i missed nonstop,  i need to recompute it from python
-
-reg  lnmktfare roundtrip nonstop online_new mktdistance100 mktdistance1002 nea_market ///
+reg  lnmktfare roundtrip nonstop mktcoupons online_new  mktdistance100 mktdistance1002 nea_market ///
  nea_market_codeshared    ///
  i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
 est sto reg1
 
-reg  lnmktfare roundtrip nonstop online_new mktdistance100 mktdistance1002 nea_market ///
+reg  lnmktfare roundtrip nonstop mktcoupons online_new mktdistance100 mktdistance1002 nea_market ///
  nea_market_codeshared nea_market_codeshared_b6 nea_market_codeshared_aa    ///
  i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
 est sto reg1_b6_aa
 
 ///
-reg  lnq05 roundtrip nonstop online_new mktdistance100 mktdistance1002 nea_market ///
+reg  lnq05 roundtrip nonstop mktcoupons online_new mktdistance100 mktdistance1002 nea_market ///
  nea_market_codeshared  nea_market_codeshared_b6 nea_market_codeshared_aa ///
  i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ///local dependent_vars lnq1 lnq05 lnq10 lnq15 lnq20 lnq25 lnq30 lnq35 lnq45 ///
@@ -198,13 +299,99 @@ local dependent_vars q1 q05 q10 q15 q20 q25 q30 q35 q45 ///
 q50 q55 q60 q65 q70 q75 q80 q85 q90 q99
 foreach var of local dependent_vars {
     * Run the regression model
-    quietly reg ln`var' mktfare roundtrip mktdistance100 mktdistance1002 ///
-nea_market nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6 ///
-i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers]
+    quietly reg ln`var' roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared ///
+i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
     * Store the estimation results
     est store `var'
 }
 
+
+/// plot
+coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
+ q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
+ keep(nea_market_codeshared) vertical bycoefs ytitle("Impact of NEA Codeshare") ///
+xtitle("Selected Percentiles") ///
+recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
+graphregion(color(white)) plotregion(color(white))
+
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion.png", replace
+/// no grey/green background looks prettier
+
+////////////////////////////////////////////////////////////////////////////////
+/// look at B6 AA and otherairline seperately
+
+
+gen nea_market_codeshared_b6 = nea_market_codeshared* B6
+gen nea_market_codeshared_aa = nea_market_codeshared* AA 
+
+local dependent_vars q1 q05 q10 q15 q20 q25 q30 q35 q45 ///
+q50 q55 q60 q65 q70 q75 q80 q85 q90 q99
+foreach var of local dependent_vars {
+    * Run the regression model
+    quietly reg ln`var' roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6 ///
+i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+    * Store the estimation results
+    est store `var'
+}
+
+
+/// the average impact in a market except b6 and aa
+coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
+ q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
+ keep(nea_market_codeshared_aa) vertical bycoefs ytitle("Impact of NEA Codeshare on AA Airfare Dispersion") ///
+xtitle("Selected Percentiles") ///
+recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
+graphregion(color(white)) plotregion(color(white))
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_AA.png", replace
+
+coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
+ q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
+ keep(nea_market_codeshared_b6) vertical bycoefs ytitle("Impact of NEA Codeshare on B6 Airfare Dispersion") ///
+xtitle("Selected Percentiles") ///
+recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
+graphregion(color(white)) plotregion(color(white))
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_B6.png", replace
+
+********************************************************************************
+////////////////////////////////////////////////////////////////////////////////
+/// price dispersion excluding small markets with market fixed effects 
+gen lnmktfare = ln(mktfare)
+
+
+/// delete samll markets 
+
+egen total_quantity = total( passengers), by(market year quarter)
+
+drop if total_quantity<2000
+/// N= 752010, may need robostness check here
+egen newidd = group(market) 
+///1957 markets left
+sum newidd
+
+set matsize 2200
+
+
+reg MktFare_sd roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+est sto reg1_v
+
+reg lnmktfare roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+
+
+/// the average impact in a market
+local dependent_vars q1 q05 q10 q15 q20 q25 q30 q35 q45 ///
+q50 q55 q60 q65 q70 q75 q80 q85 q90 q99
+foreach var of local dependent_vars {
+    * Run the regression model
+    quietly reg ln`var' roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+    * Store the estimation results
+    est store `var'
+}
 
 coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
  q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
@@ -212,7 +399,8 @@ coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
 xtitle("Selected Percentiles") ///
 recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
 graphregion(color(white)) plotregion(color(white))
-/// no grey/green background looks prettier
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_MFE.png", replace
+
 ////////////////////////////////////////////////////////////////////////////////
 /// look at B6 AA and otherairline seperately
 
@@ -221,21 +409,22 @@ local dependent_vars q1 q05 q10 q15 q20 q25 q30 q35 q45 ///
 q50 q55 q60 q65 q70 q75 q80 q85 q90 q99
 foreach var of local dependent_vars {
     * Run the regression model
-    quietly reg ln`var' mktfare roundtrip mktdistance100 mktdistance1002 ///
-nea_market nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6 ///
-i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers]
+    quietly reg ln`var' roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+ nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6 ///
+i.dt i.newidd  WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers]
     * Store the estimation results
     est store `var'
 }
 
 
-/// the average impact in a market
+/// the average impact in a market except b6 and aa
 coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
  q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
  keep(nea_market_codeshared_aa) vertical bycoefs ytitle("Impact of NEA Codeshare on AA Airfare Dispersion") ///
 xtitle("Selected Percentiles") ///
 recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
 graphregion(color(white)) plotregion(color(white))
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_MFE_AA.png", replace
 
 coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
  q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
@@ -243,3 +432,66 @@ coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
 xtitle("Selected Percentiles") ///
 recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
 graphregion(color(white)) plotregion(color(white))
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_MFE_B6.png", replace
+
+
+
+/// std with market fixd effects 
+reg MktFare_sd roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_v_mfe
+
+reg lnq1 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q1_mfe
+
+
+reg lnq25 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q25_mfe
+
+reg lnq50 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q50_mfe
+
+reg lnq75 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q75_mfe
+
+reg lnq99 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q99_mfe
+
+estout reg3_v_mfe reg3_q1_mfe reg3_q25_mfe reg3_q50_mfe reg3_q75_mfe reg3_q99_mfe  using ///
+ result323_marketfixed_selected.xls, cells("b" se)  replace
+ 
+est restore reg3_v_mfe
+//ereturn list
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q1_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q25_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q50_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q75_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q99_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)

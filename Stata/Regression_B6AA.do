@@ -257,7 +257,8 @@ est sto reg_market_fixed_nocovid_ln
 
 reg lnfare roundtrip nonstop incon t_codeshare v_codeshare interline online_new  ///
 1.b6aa#1.AA 1.b6aa#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM ///
-nea_market_codeshared 1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6 ///
+nea_market_codeshared 1.nea_market_codeshared#1.AA 1.nea_market_codeshared#1.B6
+ ///
 i.dt i.newidd [aweight = passengers], cluster(market)
 
 est sto reg_mf_nocovid_ln_b6aa
