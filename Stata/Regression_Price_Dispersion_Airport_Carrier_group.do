@@ -1,4 +1,4 @@
-// this file computes the dispersion with 
+// this file computes the dispersion at the carrier route level
 ///////////////////////////////////////////////////////////////////////////////
 /// import the data, cleaned in Python
 
@@ -119,13 +119,19 @@ gen b6aa_c  = strpos(opcarriergroup, "AA")& strpos(opcarriergroup, "B6") & onlin
 
 set matsize 4000
 
-reg mktfare roundtrip nonstop t_codeshare v_codeshare interline online_new ///
+reg mktfare roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
  1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
  nea_market_codeshared i.dt i.newidd [aweight = passengers], cluster(market)
 
 est sto reg_mf_airportsgroup
 
-reg MktFare_sd roundtrip nonstop t_codeshare v_codeshare interline online_new ///
+reg lnmktfare roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
+ 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
+ nea_market_codeshared i.dt i.newidd [aweight = passengers], cluster(market)
+
+est sto reg_mf_airportsgroupln
+
+reg MktFare_sd roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
  1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
  nea_market_codeshared i.dt i.newidd [aweight = passengers], cluster(market)
 
@@ -141,15 +147,21 @@ gen dummy_ewr = (strpos(airportgroup, "EWR") > 0)
 
 gen dummy_lga = (strpos(airportgroup, "LGA") > 0)
 
-reg mktfare roundtrip nonstop t_codeshare v_codeshare interline online_new ///
+reg mktfare roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
  1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
  nea_market_codeshared 1.nea_market_codeshared#1.dummy_bos 1.nea_market_codeshared#1.dummy_jfk ///
 1.nea_market_codeshared#1.dummy_ewr 1.nea_market_codeshared#1.dummy_lga i.dt i.newidd [aweight = passengers], cluster(market)
 
 est store reg_mf_airportsgroupss
- 
 
-reg MktFare_sd roundtrip nonstop t_codeshare v_codeshare interline online_new ///
+reg lnmktfare roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
+ 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
+ nea_market_codeshared 1.nea_market_codeshared#1.dummy_bos 1.nea_market_codeshared#1.dummy_jfk ///
+1.nea_market_codeshared#1.dummy_ewr 1.nea_market_codeshared#1.dummy_lga i.dt i.newidd [aweight = passengers], cluster(market)
+
+est store reg_mf_airportsgroupssln
+
+reg MktFare_sd roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
  1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
  nea_market_codeshared 1.nea_market_codeshared#1.dummy_bos 1.nea_market_codeshared#1.dummy_jfk ///
 1.nea_market_codeshared#1.dummy_ewr 1.nea_market_codeshared#1.dummy_lga i.dt i.newidd [aweight = passengers], cluster(market)
@@ -158,15 +170,58 @@ reg MktFare_sd roundtrip nonstop t_codeshare v_codeshare interline online_new //
 est store reg_mf_airportsgroupsssd
  
  
-estout reg_mf_airportsgroup reg_mf_airportsgroup_sd reg_mf_airportsgroupss ///
-reg_mf_airportsgroupsssd using result419mf.xls, cells("b" se)  replace
+estout reg_mf_airportsgroup reg_mf_airportsgroupln reg_mf_airportsgroup_sd reg_mf_airportsgroupss ///
+reg_mf_airportsgroupssln reg_mf_airportsgroupsssd using result419mf.xls, cells("b" se)  replace
  
  
 ********************************************************************************
+// quantile
+
+gen lnq1= ln(q1)
+gen lnq05= ln(q05)
+gen lnq10= ln(q10)
+gen lnq15= ln(q15)
+gen lnq20= ln(q20)
+gen lnq25= ln(q25)
+gen lnq30= ln(q30)
+gen lnq35= ln(q35)
+gen lnq40= ln(q40)
+gen lnq45= ln(q45)
+gen lnq50= ln(q50)
+gen lnq55= ln(q55)
+gen lnq60= ln(q60)
+gen lnq65= ln(q65)
+gen lnq70= ln(q70)
+gen lnq75= ln(q75)
+gen lnq80= ln(q80)
+gen lnq85= ln(q85)
+gen lnq90= ln(q90)
+gen lnq99= ln(q99)
+
+local dependent_vars q1 q05 q10 q15 q20 q25 q30 q35 q45 ///
+q50 q55 q60 q65 q70 q75 q80 q85 q90 q99
+foreach var of local dependent_vars {
+    * Run the regression model
+    quietly reg ln`var' roundtrip nonstop t_codeshare v_codeshare interline pure_online ///
+ 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
+ nea_market_codeshared 1.nea_market_codeshared#1.dummy_bos 1.nea_market_codeshared#1.dummy_jfk ///
+1.nea_market_codeshared#1.dummy_ewr 1.nea_market_codeshared#1.dummy_lga i.dt i.newidd [aweight = passengers], cluster(market)
+
+    * Store the estimation results
+    est store `var'
+}
 
  
  
- 
+ //plot 
+ coefplot q1 || q05 || q10 || q15 || q20 || q25 || q30 || q35 || q45 || ///
+ q50 || q55 || q60 || q65 || q70 || q75 || q80 || q85 || q90 || q99, ///
+ keep(1.nea_market_codeshared#1.dummy_bos) vertical bycoefs ytitle("Impact of NEA Codeshare in BOS Airport") ///
+xtitle("Selected Percentiles") ///
+recast(connected)  ciopts(recast(rarea) color(gs14) lpattern(dash)) ///
+graphregion(color(white)) plotregion(color(white))
+graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_MFE_BOS_carriergroup.png", replace
+
  
  
  
