@@ -18,3 +18,18 @@ for y in [2019, 2020, 2021, 2022, 2023]:
                     "_Survey_DB1BMarket_{}_{}.zip").format(y, q)
         a = urllib.request.urlretrieve(url_file,
                                        "Market_{}_{}.zip".format(y, q))
+#Get the data for 2024 Q1
+y =2024
+q =1
+url_file = ("https://transtats.bts.gov/PREZIP/Origin_and_Destination"
+                "_Survey_DB1BCoupon_{}_{}.zip").format(y, q)
+a = urllib.request.urlretrieve(url_file,
+                                    "Coupon_{}_{}.zip".format(y, q))
+url_file = ("https://transtats.bts.gov/PREZIP/Origin_and_Destination"
+            "_Survey_DB1BTicket_{}_{}.zip").format(y, q)
+a = urllib.request.urlretrieve(url_file,
+                                "Ticket_{}_{}.zip".format(y, q))
+url_file = ("https://transtats.bts.gov/PREZIP/Origin_and_Destination"
+            "_Survey_DB1BMarket_{}_{}.zip").format(y, q)
+a = urllib.request.urlretrieve(url_file,
+                                "Market_{}_{}.zip".format(y, q))
