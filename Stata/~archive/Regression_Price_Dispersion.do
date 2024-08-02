@@ -202,6 +202,31 @@ estout reg_nocovid reg_nocovid_ln reg_b6aa_nocovid reg_b6aa_nocovid_ln  ///
  reg_market_fixed_nocovid_ln reg_market_fixed_b6aa_ln using ///
  result3152_marketfixed_nocovid.xls, cells("b" se)  replace
  
+ 
+est restore reg_nocovid
+ereturn list
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_b6aa_nocovid
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_b6aa_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_market_fixed_nocovid_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg_market_fixed_b6aa_ln
+di "R-squared: " e(r2)
+di "N: " e(N)
 ********************************************************************************
 ////////////////////////////////////////////////////////////////////////////////
 /// price dispersion
@@ -221,7 +246,7 @@ gen mktdistance1002=mktdistance100^2
 drop if year==2020 |year ==2021 |(year==2022 & quarter ==1)
 
 reg MktFare_sd roundtrip nonstop mktdistance100 mktdistance1002 ///
-nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+nea_market nea_market_codeshared i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
 est sto reg1_v
 
 gen lnq1= ln(q1)
@@ -259,6 +284,10 @@ est sto reg1_b6_aa
 reg  lnq05 roundtrip nonstop mktcoupons online_new mktdistance100 mktdistance1002 nea_market ///
  nea_market_codeshared  nea_market_codeshared_b6 nea_market_codeshared_aa ///
  i.dt WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers] 
+
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ///local dependent_vars lnq1 lnq05 lnq10 lnq15 lnq20 lnq25 lnq30 lnq35 lnq45 ///
@@ -337,7 +366,9 @@ egen total_quantity = total( passengers), by(market year quarter)
 
 drop if total_quantity<2000
 /// N= 752010, may need robostness check here
-egen newidd = group(market) ///1957 markets left
+egen newidd = group(market) 
+///1957 markets left
+sum newidd
 
 set matsize 2200
 
@@ -405,3 +436,62 @@ graph export "E:\Research\Codeshare JetBlue AA\Stata File\Price_Dispersion_MFE_B
 
 
 
+/// std with market fixd effects 
+reg MktFare_sd roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_v_mfe
+
+reg lnq1 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q1_mfe
+
+
+reg lnq25 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q25_mfe
+
+reg lnq50 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q50_mfe
+
+reg lnq75 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q75_mfe
+
+reg lnq99 roundtrip nonstop mktcoupons mktdistance100 mktdistance1002 ///
+nea_market_codeshared nea_market_codeshared_aa nea_market_codeshared_b6  ///
+i.dt i.newidd WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM[aweight = passengers], cluster(market) 
+est sto reg3_q99_mfe
+
+estout reg3_v_mfe reg3_q1_mfe reg3_q25_mfe reg3_q50_mfe reg3_q75_mfe reg3_q99_mfe  using ///
+ result323_marketfixed_selected.xls, cells("b" se)  replace
+ 
+est restore reg3_v_mfe
+//ereturn list
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q1_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q25_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q50_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q75_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
+
+est restore reg3_q99_mfe
+di "R-squared: " e(r2)
+di "N: " e(N)
