@@ -63,11 +63,16 @@ save "cleaned717_all.dta"
 **# Generate variables
 ********************************************************************************
 * load data
-use cleaned717_all.dta, clear
+use "cleaned717_all.dta", clear
 
 foreach x in "WN" "AA" "DL" "UA" "NK" "AS" "B6" "F9" "G4" "HA" "SY" "XP" "MX" "MM" {
 gen `x' = strpos(tkcarriergroup, "`x'")>0
 }
+
+* nonstop flight
+
+gen n_airpots = length(airportgroup) - length(subinstr(airportgroup, ":", "", .)) + 1
+gen nonstop = n_airpots ==2
 
 * find the market which is the codeshared market
 
@@ -203,12 +208,12 @@ drop if total_quantity<10000  /// 3.9M obs to 279,273 obs
 * delete the missing information
 drop if strpos(tkcarriergroup, "--")>0 /// 223,396 obs
 
-preserve 
-	drop if passengers<10
-	di _N 
-	** number of the obs down to 52991
-restore 
+*preserve 
+drop if passengers<10
+di _N 
+** number of the obs down to 52991
+*restore 
 
-save "cleaned717_dropsmallmarket.dta"
+save "cleaned717_dropsmallmarket.dta", replace
 
 *** End of File
