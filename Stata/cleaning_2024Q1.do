@@ -74,11 +74,6 @@ gen `x' = strpos(tkcarriergroup, "`x'")>0
 gen n_airpots = length(airportgroup) - length(subinstr(airportgroup, ":", "", .)) + 1
 gen nonstop = n_airpots ==2
 
-* find the market which is the codeshared market
-
-egen nea_market = total(nea_market_codeshared), by(market)
-replace nea_market=nea_market>1
-
 tab mktcoupons 
 
 drop if mktcoupons>4
@@ -111,7 +106,25 @@ replace v_codeshare = 1 if num_op_carriers==3 & opcarriers1 == opcarriers2 & opc
 gen pure_online = online_new==1 & v_codeshare==0
 
 *b6 aa codeshared flights
-gen b6aa_c  = strpos(opcarriergroup, "AA")& strpos(opcarriergroup, "B6") & online_new ==0 & interline ==0 &v_codeshare==0
+cap drop b6aa_c
+
+gen temp1 = tkcarriergroup + opcarriergroup
+gen b6aa_c = index(temp1, "B6") &index(temp1, "AA") & interline==0
+
+
+
+* find the market which is the codeshared market
+* regenerate the nea_market_codeshared. The existing one only consider traditional codeshared market
+drop nea_market_codeshared
+
+egen nea_market_codeshared = total(b6aa_c), by(market quarter year)
+replace nea_market_codeshared=nea_market_codeshared>1
+
+egen nea_market = total(nea_market_codeshared), by(market)
+replace nea_market=nea_market>1
+
+
+
 
 ********************************************************************************
 **# Summary Statistics 
@@ -216,4 +229,7 @@ di _N
 
 save "cleaned717_dropsmallmarket.dta", replace
 
+*** RUN REGRESSION FILE
+*cd "F:\Codeshare JetBlue AA\STATA_New_Data_7_2024"
+*do regression_2024Q1.do
 *** End of File

@@ -2,7 +2,7 @@
 **## DID: marketfare with Market Fixed Effects
 *******************************************************************************
 
-use "cleaned717_dropsmallmarket.dta", clear 
+*use "cleaned717_dropsmallmarket.dta", clear 
 
 * log price
 gen lnmktfare = ln(mktfare)
@@ -223,14 +223,21 @@ graph export "Price_Dispersion_MFE_NonNew_Market.png", replace
 **## DID: Direct Flight 
 ********************************************************************************
 
-drop if nonstop ==1
+drop if nonstop ==0
 
 reg mktfare roundtrip  ///
- t_codeshare v_codeshare  pure_online ///
- 1.b6aa_c#1.AA 1.b6aa_c#1.B6 WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
- nea_market_codeshared i.dt i.mktgroupid [aweight = passengers], cluster(market)
+ v_codeshare  pure_online ///
+ WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
+ 1.nea_market_codeshared JetBlue_new_market_served ///
+ 1.nea_market_codeshared#1.JetBlue_new_market_served ///
+ i.dt i.mktgroupid [aweight = passengers], cluster(market)
 
-
+reg MktFare_sd roundtrip  ///
+ v_codeshare  pure_online ///
+ WN AA DL UA NK AS B6 F9 G4 HA SY XP MX MM  ///
+ 1.nea_market_codeshared JetBlue_new_market_served ///
+ 1.nea_market_codeshared#1.JetBlue_new_market_served ///
+ i.dt i.mktgroupid [aweight = passengers], cluster(market)
 
 ********************************************************************************
 **# DID: The effects on the number of passengers by Carriers
